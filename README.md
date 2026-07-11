@@ -1,8 +1,11 @@
-# 爬取xdf课表
+# XDF 课表导出工具
 
-GitHub 仓库名建议：`XdfScheduleCrawler`
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-一个本地运行的 XDF 课表抓取与 Excel 导出工具。程序通过 Playwright 打开课表页面，复用用户登录状态调用课表接口，并生成便于查看和筛选的工作簿。
+一个本地运行的课表导出工具。它通过 Playwright 打开你有权访问的课表页面，复用本机浏览器登录状态获取课程数据，并生成便于查看和筛选的 Excel 工作簿。
+
+> 非官方项目，与新东方及其关联方无关。本项目不提供账号、绕过登录的功能，也不应被用于访问无权查看的数据。
 
 ## 功能
 
@@ -20,7 +23,7 @@ GitHub 仓库名建议：`XdfScheduleCrawler`
 
 - macOS、Windows 或 Linux
 - Python 3.10+
-- 可访问 XDF 课表页面的账号
+- 你有权访问的课表页面账号
 
 ## 安装
 
@@ -59,6 +62,12 @@ macOS/Linux 也可以使用启动脚本：
 
 首次运行会打开浏览器，请完成登录。登录状态有效时，后续运行一般不需要再次登录。
 
+如需在已有登录状态下无界面运行，可添加 `--headless`：
+
+```bash
+python main.py --start 2026-07-13 --end 2026-08-31 --headless
+```
+
 ## 输出
 
 文件默认保存在 `output/`，每个 Excel 包含：
@@ -87,11 +96,25 @@ macOS/Linux 也可以使用启动脚本：
 | `XDF_SCHEDULE_PAGE_URL` | 覆盖课表页面地址 |
 | `XDF_API_BASE` | 覆盖接口基础地址 |
 
+## 测试
+
+```bash
+python -m unittest discover -s tests -v
+```
+
 ## 隐私与安全
 
 `browser_data/` 中可能包含登录 Cookie 和其他浏览器会话数据，已经加入 `.gitignore`。不要把这个目录、真实课程 Excel、接口响应 JSON 或截图提交到 GitHub。
 
-本项目仅用于整理本人有权访问的课表数据。请遵守所在机构的使用规则，不要高频请求、共享他人信息或将工具用于未授权的数据获取。
+本项目仅用于整理你有权访问的课表数据。请遵守所在机构的使用规则，不要高频请求、共享他人信息，或将工具用于未授权的数据获取。
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request。提交前请阅读 [贡献指南](CONTRIBUTING.md)，尤其注意不要上传登录态、真实课表或任何个人信息。
+
+## 许可证
+
+本项目采用 [MIT License](LICENSE) 开源。
 
 ## 项目结构
 
