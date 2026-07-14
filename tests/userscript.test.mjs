@@ -41,7 +41,7 @@ function createXlsxSpy() {
 
 const sourcePath = new URL('../userscripts/xdf-schedule-export.user.js', import.meta.url);
 const userscriptSource = fs.readFileSync(sourcePath, 'utf8');
-assert.match(userscriptSource, /@version\s+1\.3\.3/);
+assert.match(userscriptSource, /@version\s+1\.3\.4/);
 assert.match(userscriptSource, /backdrop-filter: blur\(36px\) saturate\(180%\)/);
 assert.match(userscriptSource, /@media \(max-width: 600px\)/);
 assert.match(userscriptSource, /@media \(prefers-reduced-motion: reduce\)/);
@@ -110,8 +110,8 @@ const schedules = [
 exportWorkbook(schedules, '2026-07-13', '2026-08-31', { combineMonthViews: true });
 let write = xlsx.writes.at(-1);
 assert.deepEqual(write.workbook.SheetNames, ['月视图', '统计', '详细课表']);
-assert.equal(write.workbook.Sheets.月视图.A1.v, '2026 年 7 月课程月视图');
-assert.ok(Object.values(write.workbook.Sheets.月视图).some((cell) => cell?.v === '2026 年 8 月课程月视图'));
+assert.equal(write.workbook.Sheets.月视图.A1.v, '2026-07-13 至 2026-08-31 课表月视图');
+assert.ok(!Object.values(write.workbook.Sheets.月视图).some((cell) => cell?.v?.includes('课程月视图') && cell.v !== '2026-07-13 至 2026-08-31 课表月视图'));
 assert.ok(Object.values(write.workbook.Sheets.月视图).some((cell) => cell?.v?.includes('08:00–10:00  陈同学')));
 assert.ok(Object.values(write.workbook.Sheets.月视图).some((cell) => cell?.v?.includes('10:20–12:20  王同学')));
 assert.ok(!Object.values(write.workbook.Sheets.月视图).some((cell) => cell?.v?.includes('08:00–10:00  无课')));
@@ -120,6 +120,8 @@ const cellAddressFor = (text) => Object.entries(julyMonthSheet).find(([, cell]) 
 const rowFor = (text) => Number(cellAddressFor(text).match(/\d+$/)[0]);
 assert.notEqual(rowFor('08:00–10:00  陈同学'), rowFor('10:20–12:20  赵同学'));
 assert.equal(rowFor('10:20–12:20  王同学'), rowFor('10:20–12:20  赵同学'));
+assert.equal(julyMonthSheet.A2.v, '时间段');
+assert.equal(julyMonthSheet[`A${rowFor('10:20–12:20  王同学')}`].v, '10:20–12:20');
 assert.equal(write.workbook.Sheets.统计.A1.v, '课表导出统计');
 assert.equal(write.workbook.Sheets.统计['!ref'], 'A1:J18');
 assert.equal(write.workbook.Sheets.详细课表.A1.v, '日期');
@@ -127,6 +129,7 @@ assert.equal(write.workbook.Sheets.详细课表.A1.v, '日期');
 exportWorkbook(schedules, '2026-07-13', '2026-08-31', { combineMonthViews: false });
 write = xlsx.writes.at(-1);
 assert.deepEqual(write.workbook.SheetNames, ['2026年7月月视图', '2026年8月月视图', '统计', '详细课表']);
+assert.equal(write.workbook.Sheets['2026年7月月视图'].A1.v, '2026 年 7 月课程月视图');
 
 savePreferences({ startDate: '2026-07-13', endDate: '2026-08-31', combineMonthViews: false });
 assert.equal(JSON.stringify(loadPreferences()), JSON.stringify({ startDate: '2026-07-13', endDate: '2026-08-31', combineMonthViews: false }));

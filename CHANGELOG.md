@@ -6,6 +6,16 @@
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-07-14
+
+### 新增
+
+- 月视图最左侧新增“时间段”列，便于横向查看时确认课程时段。
+
+### 优化
+
+- 合并月视图仅保留一个包含完整导出范围的总标题，不再重复显示各月份标题。
+
 ## [1.3.3] - 2026-07-14
 
 ### 修复
@@ -61,7 +71,8 @@
 
 - 复用持久化浏览器上下文已有的初始标签页，不再额外打开空白页。
 
-[Unreleased]: https://github.com/nowscott/XdfScheduleCrawler/compare/v1.3.3...HEAD
+[Unreleased]: https://github.com/nowscott/XdfScheduleCrawler/compare/v1.3.4...HEAD
+[1.3.4]: https://github.com/nowscott/XdfScheduleCrawler/compare/v1.3.3...v1.3.4
 [1.3.3]: https://github.com/nowscott/XdfScheduleCrawler/compare/v1.3.0...v1.3.3
 [1.3.0]: https://github.com/nowscott/XdfScheduleCrawler/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/nowscott/XdfScheduleCrawler/compare/v1.0.0...v1.2.1
