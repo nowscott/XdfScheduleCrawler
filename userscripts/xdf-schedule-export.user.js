@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         XDF 课表导出
 // @namespace    https://github.com/nowscott/XdfScheduleCrawler
-// @version      1.3.3
+// @version      1.3.4
 // @description  在已登录的课表页面中导出月视图、统计和课表明细。
 // @author       nowscott
 // @match        https://we.xdf.cn/*
@@ -313,7 +313,7 @@
         return months;
     }
 
-    function createMonthSheet(year, month, lessons) {
+    function createMonthSheet(year, month, lessons, { includeTitle = true } = {}) {
         const byDate = new Map();
         lessons.forEach((lesson) => {
             const date = String(lesson._date || '').slice(0, 10);
@@ -340,32 +340,49 @@
                 .flatMap(([slot, count]) => Array.from({ length: count }, () => slot));
         });
         const lessonRowsByWeek = timeRowsByWeek.map((timeRows) => Math.max(1, timeRows.length));
-        const totalRows = 3 + lessonRowsByWeek.reduce((sum, lessonRows) => sum + 1 + lessonRows, 0);
-        const sheet = XLSX.utils.aoa_to_sheet(Array.from({ length: totalRows }, () => Array(7).fill('')));
-        sheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } }];
-        sheet['!cols'] = Array.from({ length: 7 }, () => ({ wch: 27 }));
-        sheet['!rows'] = [{ hpt: 40 }, { hpt: 24 }, { hpt: 28 }, ...lessonRowsByWeek.flatMap((lessonRows) => [{ hpt: 22 }, ...Array.from({ length: lessonRows }, () => ({ hpt: 23 }))])];
-        sheet['!ref'] = `A1:G${totalRows}`;
+        const headerRows = includeTitle ? 3 : 1;
+        const totalRows = headerRows + lessonRowsByWeek.reduce((sum, lessonRows) => sum + 1 + lessonRows, 0);
+        const sheet = XLSX.utils.aoa_to_sheet(Array.from({ length: totalRows }, () => Array(8).fill('')));
+        sheet['!merges'] = includeTitle ? [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } }] : [];
+        sheet['!cols'] = [{ wch: 14 }, ...Array.from({ length: 7 }, () => ({ wch: 27 }))];
+        sheet['!rows'] = [
+            ...(includeTitle ? [{ hpt: 40 }, { hpt: 24 }] : []),
+            { hpt: 28 },
+            ...lessonRowsByWeek.flatMap((lessonRows) => [{ hpt: 22 }, ...Array.from({ length: lessonRows }, () => ({ hpt: 23 }))]),
+        ];
+        sheet['!ref'] = `A1:H${totalRows}`;
 
-        cell(sheet, 0, 0, `${year} 年 ${month} 月课程月视图`, { font: font(20, { bold: true, color: { rgb: COLORS.titleText } }), fill: fill(COLORS.header), alignment: alignment('center') });
-        cell(sheet, 1, 0, `共 ${lessons.length} 节课 · ${byDate.size} 个有课日期 · 同一横排仅对应同一时间段`, { font: font(10, { color: { rgb: COLORS.summaryText } }), fill: fill(COLORS.date), alignment: alignment('center') });
+        if (includeTitle) {
+            cell(sheet, 0, 0, `${year} 年 ${month} 月课程月视图`, { font: font(20, { bold: true, color: { rgb: COLORS.titleText } }), fill: fill(COLORS.header), alignment: alignment('center') });
+            cell(sheet, 1, 0, `共 ${lessons.length} 节课 · ${byDate.size} 个有课日期 · 同一横排仅对应同一时间段`, { font: font(10, { color: { rgb: COLORS.summaryText } }), fill: fill(COLORS.date), alignment: alignment('center') });
+        }
+        const weekdayRow = includeTitle ? 2 : 0;
+        cell(sheet, weekdayRow, 0, '时间段', { font: font(11, { bold: true, color: { rgb: COLORS.titleText } }), fill: fill(COLORS.weekday), alignment: alignment('center'), border: THIN_BORDER });
         WEEKDAYS.forEach((weekday, column) => {
-            cell(sheet, 2, column, weekday, { font: font(11, { bold: true, color: { rgb: COLORS.titleText } }), fill: fill(COLORS.weekday), alignment: alignment('center'), border: THIN_BORDER });
+            cell(sheet, weekdayRow, column + 1, weekday, { font: font(11, { bold: true, color: { rgb: COLORS.titleText } }), fill: fill(COLORS.weekday), alignment: alignment('center'), border: THIN_BORDER });
         });
 
-        let dateRow = 3;
+        let dateRow = weekdayRow + 1;
         weeks.forEach((week, weekIndex) => {
             const lessonRows = lessonRowsByWeek[weekIndex];
             const timeRows = timeRowsByWeek[weekIndex];
+            cell(sheet, dateRow, 0, '', { fill: fill(COLORS.date), border: THIN_BORDER });
+            for (let lessonIndex = 0; lessonIndex < lessonRows; lessonIndex += 1) {
+                const slot = timeRows[lessonIndex] || '';
+                cell(sheet, dateRow + lessonIndex + 1, 0, slot, {
+                    font: font(9, { bold: Boolean(slot), color: { rgb: slot ? COLORS.summaryText : COLORS.muted } }),
+                    fill: fill(COLORS.date), alignment: alignment('center'), border: THIN_BORDER,
+                });
+            }
             week.forEach((day, weekdayIndex) => {
                 const isWeekend = weekdayIndex >= 5;
                 if (!day) {
-                    for (let rowOffset = 0; rowOffset <= lessonRows; rowOffset += 1) cell(sheet, dateRow + rowOffset, weekdayIndex, '', { fill: fill(COLORS.outside), border: THIN_BORDER });
+                    for (let rowOffset = 0; rowOffset <= lessonRows; rowOffset += 1) cell(sheet, dateRow + rowOffset, weekdayIndex + 1, '', { fill: fill(COLORS.outside), border: THIN_BORDER });
                     return;
                 }
                 const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const dayLessons = byDate.get(dateKey) || [];
-                cell(sheet, dateRow, weekdayIndex, `${day} 日${dayLessons.length ? ` · ${dayLessons.length} 节` : ''}`, {
+                cell(sheet, dateRow, weekdayIndex + 1, `${day} 日${dayLessons.length ? ` · ${dayLessons.length} 节` : ''}`, {
                     font: font(10, { bold: true, color: { rgb: COLORS.summaryText } }),
                     fill: fill(dayLessons.length ? COLORS.activeDate : (isWeekend ? COLORS.weekendDate : COLORS.date)), alignment: alignment('left'), border: THIN_BORDER,
                 });
@@ -382,12 +399,12 @@
                     const row = dateRow + lessonIndex + 1;
                     if (!lesson) {
                         const noCourse = lessonIndex === 0 && !dayLessons.length ? '无课' : '';
-                        cell(sheet, row, weekdayIndex, noCourse, { font: font(8, { color: { rgb: COLORS.muted } }), fill: fill(isWeekend ? COLORS.weekend : COLORS.white), alignment: alignment('left'), border: THIN_BORDER });
+                        cell(sheet, row, weekdayIndex + 1, noCourse, { font: font(8, { color: { rgb: COLORS.muted } }), fill: fill(isWeekend ? COLORS.weekend : COLORS.white), alignment: alignment('left'), border: THIN_BORDER });
                         continue;
                     }
                     const start = timePart(lesson.lessonStartTime);
                     const end = timePart(lesson.lessonEndTime);
-                    cell(sheet, row, weekdayIndex, `${start}–${end}  ${studentName(lesson)} · ${shortRoom(lesson.roomName)}`, { font: font(8, { bold: true, color: { rgb: COLORS.courseText } }), fill: fill(COLORS.course), alignment: alignment('left'), border: THIN_BORDER });
+                    cell(sheet, row, weekdayIndex + 1, `${start}–${end}  ${studentName(lesson)} · ${shortRoom(lesson.roomName)}`, { font: font(8, { bold: true, color: { rgb: COLORS.courseText } }), fill: fill(COLORS.course), alignment: alignment('left'), border: THIN_BORDER });
                 }
             });
             dateRow += lessonRows + 1;
@@ -410,14 +427,15 @@
         target['!rows'].push(...(source['!rows'] || []));
     }
 
-    function createCombinedMonthSheet(months) {
+    function createCombinedMonthSheet(months, startDate, endDate) {
         const sheet = XLSX.utils.aoa_to_sheet([[]]);
-        sheet['!merges'] = [];
-        sheet['!cols'] = Array.from({ length: 7 }, () => ({ wch: 27 }));
-        sheet['!rows'] = [];
-        let rowOffset = 0;
+        sheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }];
+        sheet['!cols'] = [{ wch: 14 }, ...Array.from({ length: 7 }, () => ({ wch: 27 }))];
+        sheet['!rows'] = [{ hpt: 40 }];
+        cell(sheet, 0, 0, `${startDate} 至 ${endDate} 课表月视图`, { font: font(20, { bold: true, color: { rgb: COLORS.titleText } }), fill: fill(COLORS.header), alignment: alignment('center') });
+        let rowOffset = 1;
         months.forEach(({ year, month, lessons }, index) => {
-            const monthSheet = createMonthSheet(year, month, lessons);
+            const monthSheet = createMonthSheet(year, month, lessons, { includeTitle: false });
             appendSheetAtRow(sheet, monthSheet, rowOffset);
             rowOffset += monthSheet['!rows'].length;
             if (index < months.length - 1) {
@@ -425,7 +443,7 @@
                 rowOffset += 2;
             }
         });
-        sheet['!ref'] = `A1:G${Math.max(rowOffset, 1)}`;
+        sheet['!ref'] = `A1:H${Math.max(rowOffset, 1)}`;
         return sheet;
     }
 
@@ -525,7 +543,7 @@
         });
         const months = monthsInRange(startDate, endDate).map(({ year, month }) => ({ year, month, lessons: grouped.get(`${year}-${String(month).padStart(2, '0')}`) || [] }));
         if (combineMonthViews) {
-            XLSX.utils.book_append_sheet(workbook, createCombinedMonthSheet(months), '月视图');
+            XLSX.utils.book_append_sheet(workbook, createCombinedMonthSheet(months, startDate, endDate), '月视图');
         } else {
             months.forEach(({ year, month, lessons }) => XLSX.utils.book_append_sheet(workbook, createMonthSheet(year, month, lessons), `${year}年${month}月月视图`));
         }
